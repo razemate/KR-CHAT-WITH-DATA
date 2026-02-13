@@ -18,7 +18,7 @@ git remote add origin https://github.com/razemate/KR-CHAT-WITH-DATA.git
 
 echo Committing files...
 git add .
-git commit -m "Deploy Vanna App to Vercel"
+git commit -m "Deploy Vanna Monorepo App to Vercel"
 
 echo Pushing to GitHub...
 git push -u origin main

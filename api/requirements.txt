@@ -1,6 +1,6 @@
 fastapi
-uvicorn
-vanna[fastapi,postgres,openai]
+vanna
+psycopg2-binary
 google-generativeai
 python-dotenv
-psycopg2-binary
+openai

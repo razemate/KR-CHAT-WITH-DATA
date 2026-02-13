@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+vanna[fastapi,postgres,openai]
+google-generativeai
+python-dotenv
+psycopg2-binary

@@ -12,20 +12,20 @@ if not exist .git (
     git branch -M main
 )
 
-echo Adding remote...
-git remote remove origin >nul 2>&1
-git remote add origin https://github.com/razemate/KR-CHAT-WITH-DATA.git
+REM echo Adding remote...
+REM git remote remove origin >nul 2>&1
+REM git remote add origin https://github.com/razemate/KR-CHAT-WITH-DATA.git
 
-echo Committing files...
-git add .
-git commit -m "Deploy Vanna Monorepo App to Vercel"
+REM echo Committing files...
+REM git add .
+REM git commit -m "Deploy Vanna Monorepo App to Vercel"
 
-echo Pushing to GitHub...
-git push -u origin main
-if %ERRORLEVEL% NEQ 0 (
-    echo Warning: Git push failed. You might need to sign in or pull changes first.
-    echo Continuing with Vercel deployment...
-)
+REM echo Pushing to GitHub...
+REM git push -u origin main
+REM if %ERRORLEVEL% NEQ 0 (
+REM     echo Warning: Git push failed. You might need to sign in or pull changes first.
+REM     echo Continuing with Vercel deployment...
+REM )
 
 REM 2. Link Project
 echo.
@@ -41,32 +41,38 @@ REM 3. Add API Keys
 echo.
 echo [3/5] Configuring Environment Variables...
 
+REM Check for required environment variables
+if "%GEMINI_API_KEY%"=="" (
+    echo Error: GEMINI_API_KEY environment variable is not set.
+    pause
+    exit /b 1
+)
+if "%OPENROUTER_API_KEY%"=="" (
+    echo Error: OPENROUTER_API_KEY environment variable is not set.
+    pause
+    exit /b 1
+)
+
 echo Adding GEMINI_API_KEY...
-echo AIzaSyDkivE8O1DcigTKTghI6iWbu2E0bMJF7Og | vercel env add GEMINI_API_KEY production >nul 2>&1
+echo %GEMINI_API_KEY% | vercel env add GEMINI_API_KEY production >nul 2>&1
 if %ERRORLEVEL% EQU 0 ( echo   - Success ) else ( echo   - Already exists or error )
 
 echo Adding OPENROUTER_API_KEY...
-echo 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 | vercel env add OPENROUTER_API_KEY production >nul 2>&1
+echo %OPENROUTER_API_KEY% | vercel env add OPENROUTER_API_KEY production >nul 2>&1
 if %ERRORLEVEL% EQU 0 ( echo   - Success ) else ( echo   - Already exists or error )
 
 REM 4. Handle Database Password
 echo.
 echo [4/5] Database Configuration
-echo The Supabase connection string requires your database password.
-echo (I cannot access this securely, so please enter it below)
-echo.
-set /p DB_PASSWORD="Enter your Supabase Database Password: "
 
-if "!DB_PASSWORD!"=="" (
-    echo Error: Password cannot be empty.
+if "%SUPABASE_CONNECTION_STRING%"=="" (
+    echo Error: SUPABASE_CONNECTION_STRING environment variable is not set.
     pause
     exit /b 1
 )
 
-set "CONN_STRING=postgresql://postgres.invhetvtoqibaogwodrx:!DB_PASSWORD!@aws-0-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require"
-
 echo Adding SUPABASE_CONNECTION_STRING...
-echo !CONN_STRING! | vercel env add SUPABASE_CONNECTION_STRING production >nul 2>&1
+echo %SUPABASE_CONNECTION_STRING% | vercel env add SUPABASE_CONNECTION_STRING production >nul 2>&1
 if %ERRORLEVEL% EQU 0 ( echo   - Success ) else ( echo   - Already exists or error )
 
 REM 5. Deploy

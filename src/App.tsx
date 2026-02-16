@@ -1,11 +1,24 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { Send, Bot, User, Loader2 } from 'lucide-react';
+import { Send, Bot, User, Loader2, LogIn } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
   type?: 'text' | 'sql' | 'data';
+}
+
+interface ChatStreamChunk {
+  type: string;
+  simple?: {
+    text?: string;
+    // Add other fields as needed based on Vanna's response
+  };
+}
+
+interface ChatResponse {
+  conversation_id: string;
+  chunks: ChatStreamChunk[];
 }
 
 function App() {
@@ -14,9 +27,32 @@ function App() {
     { role: 'assistant', content: 'Hello! I am your data assistant. Ask me anything about your database.' }
   ]);
   const [loading, setLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(localStorage.getItem('auth_token'));
+  const [showLogin, setShowLogin] = useState(!localStorage.getItem('auth_token'));
+
+  const handleLogin = (e: React.FormEvent) => {
+      e.preventDefault();
+      // In a real app, you would hit an auth endpoint to get the token.
+      // For now, we'll let the user manually input a token or just simulate it
+      // But since the backend enforces JWT, the user needs a real token.
+      // For demo purposes, we will assume the user has a token or we can't really proceed.
+      // We'll prompt for a token.
+      const userToken = prompt("Please enter your JWT Bearer Token:");
+      if (userToken) {
+          setToken(userToken);
+          localStorage.setItem('auth_token', userToken);
+          setShowLogin(false);
+      }
+  };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
+    if (!token) {
+        setMessages(prev => [...prev, { role: 'assistant', content: "Please sign in to continue." }]);
+        setShowLogin(true);
+        return;
+    }
 
     const userMessage = { role: 'user' as const, content: input };
     setMessages(prev => [...prev, userMessage]);
@@ -24,21 +60,60 @@ function App() {
     setLoading(true);
 
     try {
-      // In a real Vanna app, we would hit the specific Vanna endpoints
-      // For this demo structure, we assume a standard chat endpoint is exposed
-      // You may need to adjust the endpoint based on Vanna's exact API route
-      const response = await axios.post('/api/vanna/v2/chat', {
-        message: input
+      const response = await axios.post<ChatResponse>('/api/vanna/v2/chat_poll', {
+        message: input,
+        conversation_id: conversationId
+      }, {
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
       });
 
-      // Vanna returns a specific structure, we'd parse it here
-      // For now, we simulate a response if the endpoint isn't fully mocked
-      const aiResponse = response.data?.text || "I processed your request.";
+      const data = response.data;
       
-      setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+      // Update conversation ID
+      if (data.conversation_id) {
+          setConversationId(data.conversation_id);
+      }
+
+      // Process chunks
+      let fullText = "";
+      if (data.chunks && data.chunks.length > 0) {
+          // Extract text from chunks
+          // This logic depends on how Vanna returns chunks. 
+          // Usually it's a list of components. We'll try to find text components.
+          const textChunks = data.chunks
+              .map(chunk => chunk.simple?.text)
+              .filter(Boolean);
+          
+          if (textChunks.length > 0) {
+              fullText = textChunks.join("\n\n");
+          } else {
+              fullText = "Response received (rich UI not yet rendered).";
+          }
+      } else {
+          fullText = "No response content received.";
+      }
+      
+      setMessages(prev => [...prev, { role: 'assistant', content: fullText }]);
     } catch (error) {
       console.error(error);
-      setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an error connecting to the AI." }]);
+      let errorMessage = "Sorry, I encountered an error connecting to the AI.";
+      
+      if (axios.isAxiosError(error)) {
+          if (error.response?.status === 401) {
+              errorMessage = "Please sign in again (Session expired).";
+              setToken(null);
+              localStorage.removeItem('auth_token');
+              setShowLogin(true);
+          } else if (error.response?.status === 500) {
+              errorMessage = "The AI service encountered an internal error.";
+          } else if (error.response?.status === 429) {
+              errorMessage = "You are sending requests too quickly. Please wait a moment.";
+          }
+      }
+      
+      setMessages(prev => [...prev, { role: 'assistant', content: errorMessage }]);
     } finally {
       setLoading(false);
     }
@@ -47,9 +122,32 @@ function App() {
   return (
     <div className="flex flex-col h-screen bg-gray-50 text-gray-900 font-sans">
       {/* Header */}
-      <header className="bg-white border-b px-6 py-4 flex items-center shadow-sm">
-        <Bot className="w-8 h-8 text-blue-600 mr-3" />
-        <h1 className="text-xl font-bold text-gray-800">KR Chat with Data</h1>
+      <header className="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm">
+        <div className="flex items-center">
+            <Bot className="w-8 h-8 text-blue-600 mr-3" />
+            <h1 className="text-xl font-bold text-gray-800">KR Chat with Data</h1>
+        </div>
+        <div>
+            {token ? (
+                <button 
+                    onClick={() => {
+                        setToken(null);
+                        localStorage.removeItem('auth_token');
+                        setShowLogin(true);
+                    }}
+                    className="text-sm text-gray-600 hover:text-red-600"
+                >
+                    Sign Out
+                </button>
+            ) : (
+                <button 
+                    onClick={() => setShowLogin(true)}
+                    className="text-sm text-blue-600 hover:underline"
+                >
+                    Sign In
+                </button>
+            )}
+        </div>
       </header>
 
       {/* Chat Area */}
@@ -79,6 +177,28 @@ function App() {
             </div>
           </div>
         )}
+        
+        {/* Login Modal Overlay */}
+        {showLogin && !token && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="bg-white p-8 rounded-xl shadow-xl max-w-md w-full">
+                    <div className="flex flex-col items-center mb-6">
+                        <Bot className="w-12 h-12 text-blue-600 mb-2" />
+                        <h2 className="text-2xl font-bold">Welcome Back</h2>
+                        <p className="text-gray-500 text-center">Please enter your access token to continue</p>
+                    </div>
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        <button 
+                            type="submit"
+                            className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors flex items-center justify-center"
+                        >
+                            <LogIn className="w-4 h-4 mr-2" />
+                            Enter Token
+                        </button>
+                    </form>
+                </div>
+            </div>
+        )}
       </main>
 
       {/* Input Area */}
@@ -91,11 +211,11 @@ function App() {
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
             placeholder="Ask a question about your data..."
             className="w-full pl-4 pr-12 py-3 rounded-xl border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
-            disabled={loading}
+            disabled={loading || !token}
           />
           <button 
             onClick={sendMessage}
-            disabled={!input.trim() || loading}
+            disabled={!input.trim() || loading || !token}
             className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Send className="w-5 h-5" />

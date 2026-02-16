@@ -1,10 +1,34 @@
 import os
+from dotenv import load_dotenv
 from vanna.integrations.google import GeminiLlmService
 from vanna.integrations.openai import OpenAI_Chat
 from vanna.integrations.postgres import PostgresRunner
 from vanna.core.registry import ToolRegistry
 from vanna.tools import RunSqlTool
+from vanna.core.user import UserResolver, User, RequestContext
 from vanna import Agent
+from api.auth import verify_token
+
+load_dotenv()
+
+class JwtUserResolver(UserResolver):
+    def resolve_user(self, request_context: RequestContext) -> User:
+        auth_header = request_context.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            # Fallback for dev/unauthenticated (or raise error based on policy)
+            # For now, let's assume strict auth is required
+            # But during dev, we might want a mock user if no auth header
+            # return User(id="anonymous", email="anon@example.com", group_memberships=["user"])
+            pass 
+        
+        try:
+            token = auth_header.split(" ")[1]
+            claims = verify_token(token)
+            return User(id=claims.id, email=claims.email, group_memberships=claims.groups)
+        except Exception:
+             # In a real app, you might want to log this or raise a specific error
+             # Vanna might catch this and return 401/403
+             return User(id="anonymous", email="anon@example.com", group_memberships=[])
 
 class FallbackLLM:
     def __init__(self, primary, fallback):
@@ -37,12 +61,11 @@ def setup_vanna():
     SUPABASE_CONNECTION_STRING = os.getenv("SUPABASE_CONNECTION_STRING")
 
     if not GEMINI_API_KEY:
-        print("Warning: GEMINI_API_KEY not found")
+        raise RuntimeError("GEMINI_API_KEY environment variable is required")
     if not OPENROUTER_API_KEY:
-        print("Warning: OPENROUTER_API_KEY not found")
+        raise RuntimeError("OPENROUTER_API_KEY environment variable is required")
     if not SUPABASE_CONNECTION_STRING:
-        print("Warning: SUPABASE_CONNECTION_STRING not found")
-        SUPABASE_CONNECTION_STRING = "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+        raise RuntimeError("SUPABASE_CONNECTION_STRING environment variable is required")
 
     # 2. LLM Services
     # Primary: Gemini 2.5 Flash
@@ -71,12 +94,13 @@ def setup_vanna():
 
     # 4. Tools
     registry = ToolRegistry()
-    registry.register_local_tool(RunSqlTool(postgres_runner), access_groups=[])
+    registry.register_local_tool(RunSqlTool(postgres_runner), access_groups=["user", "admin"])
 
     # 5. Agent
     agent = Agent(
         llm_service=llm_service,
         tool_registry=registry,
+        user_resolver=JwtUserResolver()
     )
     
     return agent

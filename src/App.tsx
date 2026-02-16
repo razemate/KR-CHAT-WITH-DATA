@@ -31,18 +31,15 @@ function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('auth_token'));
   const [showLogin, setShowLogin] = useState(!localStorage.getItem('auth_token'));
 
+  const [tokenInput, setTokenInput] = useState('');
+
   const handleLogin = (e: React.FormEvent) => {
       e.preventDefault();
-      // In a real app, you would hit an auth endpoint to get the token.
-      // For now, we'll let the user manually input a token or just simulate it
-      // But since the backend enforces JWT, the user needs a real token.
-      // For demo purposes, we will assume the user has a token or we can't really proceed.
-      // We'll prompt for a token.
-      const userToken = prompt("Please enter your JWT Bearer Token:");
-      if (userToken) {
-          setToken(userToken);
-          localStorage.setItem('auth_token', userToken);
+      if (tokenInput.trim()) {
+          setToken(tokenInput.trim());
+          localStorage.setItem('auth_token', tokenInput.trim());
           setShowLogin(false);
+          setTokenInput('');
       }
   };
 
@@ -188,6 +185,14 @@ function App() {
                         <p className="text-gray-500 text-center">Please enter your access token to continue</p>
                     </div>
                     <form onSubmit={handleLogin} className="space-y-4">
+                        <input 
+                            type="password"
+                            value={tokenInput}
+                            onChange={(e) => setTokenInput(e.target.value)}
+                            placeholder="Enter Bearer Token"
+                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                            required
+                        />
                         <button 
                             type="submit"
                             className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors flex items-center justify-center"

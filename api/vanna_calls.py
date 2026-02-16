@@ -15,20 +15,16 @@ class JwtUserResolver(UserResolver):
     def resolve_user(self, request_context: RequestContext) -> User:
         auth_header = request_context.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
-            # Fallback for dev/unauthenticated (or raise error based on policy)
-            # For now, let's assume strict auth is required
-            # But during dev, we might want a mock user if no auth header
-            # return User(id="anonymous", email="anon@example.com", group_memberships=["user"])
-            pass 
+            # Reject requests without a valid bearer token
+            raise ValueError("Missing or invalid Authorization header")
         
         try:
             token = auth_header.split(" ")[1]
             claims = verify_token(token)
             return User(id=claims.id, email=claims.email, group_memberships=claims.groups)
-        except Exception:
-             # In a real app, you might want to log this or raise a specific error
-             # Vanna might catch this and return 401/403
-             return User(id="anonymous", email="anon@example.com", group_memberships=[])
+        except Exception as e:
+             # Log the error if possible, but definitely reject the request
+             raise ValueError(f"Authentication failed: {str(e)}")
 
 class FallbackLLM:
     def __init__(self, primary, fallback):

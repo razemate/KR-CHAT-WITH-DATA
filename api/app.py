@@ -47,7 +47,23 @@ async def rate_limit_and_log_middleware(request: Request, call_next):
     # Clean up old entries
     if client_ip in request_counts:
         request_counts[client_ip] = [t for t in request_counts[client_ip] if now - t < RATE_LIMIT_WINDOW]
-    else:
+    
+    # Memory leak protection: Clean up other IPs periodically (e.g., if dict gets too big)
+    if len(request_counts) > 1000:
+        keys_to_delete = []
+        for ip, times in request_counts.items():
+            valid_times = [t for t in times if now - t < RATE_LIMIT_WINDOW]
+            if not valid_times:
+                keys_to_delete.append(ip)
+            else:
+                request_counts[ip] = valid_times
+        for ip in keys_to_delete:
+            del request_counts[ip]
+        # Hard reset if still too big (under extreme attack)
+        if len(request_counts) > 2000:
+             request_counts.clear()
+
+    if client_ip not in request_counts:
         request_counts[client_ip] = []
         
     if len(request_counts[client_ip]) >= RATE_LIMIT_MAX_REQUESTS:
@@ -73,9 +89,10 @@ async def rate_limit_and_log_middleware(request: Request, call_next):
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global exception: {str(exc)}")
+    # Return generic message for 500s to avoid leaking internal details
     return JSONResponse(
         status_code=500,
-        content={"error": {"code": "INTERNAL_ERROR", "message": str(exc)}},
+        content={"error": {"code": "INTERNAL_ERROR", "message": "An internal error occurred."}},
     )
 
 # Add root endpoint for health check

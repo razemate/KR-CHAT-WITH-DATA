@@ -3,3 +3,4 @@ vanna[fastapi,postgres,gemini,openai]
 psycopg2-binary
 python-dotenv
 PyJWT
+uvicorn

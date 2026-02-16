@@ -5,16 +5,26 @@ from pydantic import BaseModel
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-# Configuration
-JWT_SECRET = os.getenv("JWT_SECRET", "your-production-secret-change-me")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
+
+JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
+
+if not JWT_SECRET:
+    if ENVIRONMENT == "development":
+        JWT_SECRET = "dev-secret-only"
+    else:
+        raise RuntimeError("JWT_SECRET environment variable is required in production")
+
 
 class UserClaims(BaseModel):
     id: str
     email: str
     groups: List[str] = ["user"]
 
+
 security = HTTPBearer()
+
 
 def verify_token(token: str) -> UserClaims:
     try:
@@ -24,12 +34,10 @@ def verify_token(token: str) -> UserClaims:
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Authentication error: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Authentication error")
+
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Security(security)) -> UserClaims:
-    """
-    FastAPI dependency to get the current authenticated user.
-    """
     token = credentials.credentials
     return verify_token(token)

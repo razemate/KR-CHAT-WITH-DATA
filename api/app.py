@@ -1,32 +1,34 @@
 import logging
+import os
 import time
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from vanna.servers.fastapi import VannaFastAPIServer
 from api.vanna_calls import agent
 
-# --- Phase 7.1: Structured Logging ---
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("vanna_api")
 
-# --- Phase 3.2: CORS Configuration ---
+raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+if raw_origins:
+    allow_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+else:
+    allow_origins = ["http://localhost:5173"]
+
 config = {
     "cors": {
         "enabled": True,
-        "allow_origins": ["https://your-production-domain.com", "http://localhost:5173"],
+        "allow_origins": allow_origins,
         "allow_credentials": True,
         "allow_methods": ["*"],
         "allow_headers": ["*"],
     }
 }
 
-# Initialize Vanna Server with config
 vanna_server = VannaFastAPIServer(agent, config=config)
-
-# Create FastAPI app
 app = vanna_server.create_app()
 
 # --- Phase 7.2 & 7.3: Request Correlation & Rate Limiting (Simple) ---

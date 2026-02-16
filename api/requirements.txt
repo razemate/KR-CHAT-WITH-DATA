@@ -1,5 +1,5 @@
 fastapi
-vanna[fastapi,postgres,gemini,openai]
+vanna[fastapi,postgres,openai]
 psycopg2-binary
 python-dotenv
 PyJWT

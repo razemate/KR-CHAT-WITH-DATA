@@ -1,0 +1,13 @@
+﻿node_modules
+.next
+frontend/node_modules
+frontend/.next
+.env
+.env.*
+!.env.example
+__pycache__
+*.pyc
+.venv
+venv
+dist
+build

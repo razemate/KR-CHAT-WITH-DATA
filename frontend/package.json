@@ -1,0 +1,9 @@
+﻿{
+  "name": "kr-data-chat-frontend",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  }
+}

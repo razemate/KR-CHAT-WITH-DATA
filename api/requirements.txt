@@ -1,6 +1,0 @@
-fastapi
-vanna
-psycopg2-binary
-google-generativeai
-python-dotenv
-openai

@@ -1,4 +1,4 @@
-﻿node_modules
+node_modules
 .next
 frontend/node_modules
 frontend/.next
@@ -11,3 +11,6 @@ __pycache__
 venv
 dist
 build
+app.log
+chroma_memory
+.vercel
